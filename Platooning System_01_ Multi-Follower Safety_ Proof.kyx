@@ -1,0 +1,256 @@
+﻿/* Exported from KeYmaera X v5.1.1 */
+
+Theorem "Platooning System/01: Multi-Follower Safety"
+Description "Verified 3-Follower Platooning with Emergency Braking, Slope Compensation, and Communication Delay.".
+
+Definitions
+  Real A;        // max acceleration
+  Real B;        // normal braking
+  Real E;        // emergency braking (E > B)
+  Real h;        // time headway
+  Real g;        // gravity
+  Real T;        // communication refresh interval
+  Real alpha(Real); // road slope function
+  Real sin(Real);   // Declare sine as a real function
+
+  Real L0, L1, L2, L3; // vehicle lengths
+End.
+
+ProgramVariables
+  // Leader
+  Real pos0, vel0,vel0last,t0;
+
+  // Follower 1
+  Real pos1, vel1, acc1, vel1last,t1;
+
+  // Follower 2
+  Real pos2, vel2, acc2,vel2last, t2;
+
+  // Follower 3
+  Real pos3, vel3, acc3, vel3last, t3;
+  Real a0;
+End.
+
+Problem
+  (A > 0 & B > 0 & E > B & h > 0 & T > 0 &
+   vel0 ≥ 0 & vel1 ≥ 0 & vel2 ≥ 0 & vel3 ≥ 0 &
+   pos3 ≤ pos2 - L2 &
+    pos2 ≤ pos1 - L1 &
+    pos1 ≤ pos0 - L0 &
+
+   pos0 - pos1 - L0 ≥ h*vel1 + (vel1^2 - vel0^2)/(2*B) &
+   pos1 - pos2 - L1 ≥ h*vel2 + (vel2^2 - vel1^2)/(2*B) &
+   pos2 - pos3 - L2 ≥ h*vel3 + (vel3^2 - vel2^2)/(2*B) &
+   vel0last = vel0 & vel1last = vel1 & vel2last = vel2 & vel3last = vel3 &
+   t0 = 0 & t1 = 0 & t2 = 0 & t3=0
+  )
+
+  ->
+  [
+    {
+      /* communication refresh */
+      ? (t0 ≥ T); vel0last := vel0 ; t0 := 0;
+      ? (t1 ≥ T); vel1last := vel1; t1 := 0;
+      ? (t2 ≥ T); vel2last := vel2; t2 := 0;
+      ? (t3 ≥ T); vel2last := vel2; t3 := 0;
+
+      /* control logic for follower 1 */
+      
+        ?(pos0 - pos1 - L0 > h*vel1 + (vel1^2 - vel0last^2)/(2*B) + 1); acc1 := A;
+      
+      ++
+      
+        ?(pos0 - pos1 - L0 = h*vel1 + (vel1^2 - vel0last^2)/(2*B)); acc1 := 0;
+      
+      ++
+      
+        ?(pos0 - pos1 - L0 < h*vel1 + (vel1^2 - vel0last^2)/(2*B)) ; acc1 := -B;
+      ++
+      acc1 := -E;
+
+      /* control logic for follower 2 */
+      
+        ?(pos1 - pos2 - L1 ≥ h*vel2 + (vel2^2 - vel1last^2)/(2*B) + 1); acc2 := A;
+      
+      ++
+      
+        ?(pos1 - pos2 - L1 ≥ h*vel2 + (vel2^2 - vel1last^2)/(2*B)); acc2 := 0;
+      
+      ++
+      
+        ?(pos1 - pos2 - L1 < h*vel2 + (vel2^2 - vel1last^2)/(2*B)); acc2 := -B;
+      ++
+      acc2 := -E;
+
+      /* control logic for follower 3 */
+      
+        ?(pos2 - pos3 - L2 ≥ h*vel3 + (vel3^2 - vel2last^2)/(2*B) + 1); acc3 := A;
+      
+      ++
+      
+        ?(pos2 - pos3 - L2 ≥ h*vel3 + (vel3^2 - vel2last^2)/(2*B)); acc3 := 0;
+      
+      ++
+      
+        ?(pos2 - pos3 - L2 < h*vel3 + (vel3^2 - vel2last^2)/(2*B)); acc3 := -B;
+      
+      ++
+      acc3 := -E;
+
+      /* dynamics */
+      {
+        pos0' = vel0, vel0' = a0,
+        pos1' = vel1, vel1' = acc1 - g * sin(alpha(pos1)),
+        pos2' = vel2, vel2' = acc2 - g * sin(alpha(pos2)),
+        pos3' = vel3, vel3' = acc3 - g * sin(alpha(pos3)),
+        t1' = 1 , t2' = 1 , t3' = 1 , t0'=1 &
+        vel0 ≥ 0 & vel1 ≥ 0 & vel2 ≥ 0 & vel3 ≥ 0 & pos3 ≤ pos2 - L2 ∧ pos2 ≤ pos1 - L1 ∧ pos1 ≤ pos0 - L0
+      }
+    }*@invariant(pos3 ≤ pos2 - L2 &
+    pos2 ≤ pos1 - L1 &
+    pos1 ≤ pos0 - L0)
+  ]
+  (
+    pos3 ≤ pos2 - L2 &
+    pos2 ≤ pos1 - L1 &
+    pos1 ≤ pos0 - L0
+  )
+End.
+
+Tactic "Platooning System/01: Multi-Follower Safety: Proof"
+implyR('R=="A()>0&B()>0&E()>B()&h()>0&T()>0&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()&pos0-pos1-L0()>=h()*vel1+(vel1^2-vel0^2)/(2*B())&pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1^2)/(2*B())&pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2^2)/(2*B())&vel0last=vel0&vel1last=vel1&vel2last=vel2&vel3last=vel3&t0=0&t1=0&t2=0&t3=0->[{?t0>=T();vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();++?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;++?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}}*](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+loop("pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()", 'R=="[{?t0>=T();vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();++?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;++?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}}*](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+  "Init":
+    QE,
+  "Post":
+    QE,
+  "Step":
+    choiceb('R=="[?t0>=T();vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();++?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;++?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+    andR('R=="[?t0>=T();vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;++?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+      "[?t0>=T();vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+        composeb('R=="[?t0>=T();vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        testb('R=="[?t0>=T();][vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        implyR('R=="t0>=T()->[vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[vel0last:=vel0;t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[vel0last:=vel0;][t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0last^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[t0:=0;?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[t0:=0;][?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[?t1>=T();vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        testb('R=="[?t1>=T();][vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        implyR('R=="t1>=T()->[vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[vel1last:=vel1;t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[vel1last:=vel1;][t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[t1:=0;?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[t1:=0;][?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[?t2>=T();vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        testb('R=="[?t2>=T();][vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        implyR('R=="t2>=T()->[vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[vel2last:=vel2;t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[vel2last:=vel2;][t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[t2:=0;?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[t2:=0;][?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[?t3>=T();vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        testb('R=="[?t3>=T();][vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        implyR('R=="t3>=T()->[vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[vel2last:=vel2;t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[vel2last:=vel2;][t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[t3:=0;?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[t3:=0;][?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        composeb('R=="[?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        testb('R=="[?pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1;][acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        implyR('R=="pos0-pos1-L0()>h()*vel1+(vel1^2-vel0^2)/(2*B())+1->[acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        assignb('R=="[acc1:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        QE,
+      "[?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;++?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+        choiceb('R=="[?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;++?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+        andR('R=="[?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+          "[?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+            composeb('R=="[?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+            testb('R=="[?pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B());][acc1:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+            implyR('R=="pos0-pos1-L0()=h()*vel1+(vel1^2-vel0last^2)/(2*B())->[acc1:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+            assignb('R=="[acc1:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+            QE,
+          "[?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+            choiceb('R=="[?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();++acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+            andR('R=="[?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+              "[?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                composeb('R=="[?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());acc1:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                testb('R=="[?pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B());][acc1:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                implyR('R=="pos0-pos1-L0() < h()*vel1+(vel1^2-vel0last^2)/(2*B())->[acc1:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                assignb('R=="[acc1:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                QE,
+              "[acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                choiceb('R=="[acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();++?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                andR('R=="[acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+                  "[acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                    composeb('R=="[acc1:=-E();?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                    assignb('R=="[acc1:=-E();][?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                    composeb('R=="[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                    testb('R=="[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1;][acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                    implyR('R=="pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())+1->[acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                    assignb('R=="[acc2:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                    QE,
+                  "[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                    choiceb('R=="[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;++?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                    andR('R=="[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+                      "[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                        composeb('R=="[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                        testb('R=="[?pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B());][acc2:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                        implyR('R=="pos1-pos2-L1()>=h()*vel2+(vel2^2-vel1last^2)/(2*B())->[acc2:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                        assignb('R=="[acc2:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                        QE,
+                      "[?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                        choiceb('R=="[?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();++acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                        andR('R=="[?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+                          "[?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                            composeb('R=="[?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());acc2:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                            testb('R=="[?pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B());][acc2:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                            implyR('R=="pos1-pos2-L1() < h()*vel2+(vel2^2-vel1last^2)/(2*B())->[acc2:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                            assignb('R=="[acc2:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                            QE,
+                          "[acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                            choiceb('R=="[acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();++?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                            andR('R=="[acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+                              "[acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                                composeb('R=="[acc2:=-E();?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                assignb('R=="[acc2:=-E();][?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                composeb('R=="[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                testb('R=="[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1;][acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                implyR('R=="pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())+1->[acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                assignb('R=="[acc3:=A();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                QE,
+                              "[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                                choiceb('R=="[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;++?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                andR('R=="[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+                                  "[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                                    composeb('R=="[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                    testb('R=="[?pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B());][acc3:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                    implyR('R=="pos2-pos3-L2()>=h()*vel3+(vel3^2-vel2last^2)/(2*B())->[acc3:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                    assignb('R=="[acc3:=0;](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                    QE,
+                                  "[?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                                    choiceb('R=="[?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();++acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                    andR('R=="[?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())&[acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())"); <(
+                                      "[?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                                        composeb('R=="[?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());acc3:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                        testb('R=="[?pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B());][acc3:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                        implyR('R=="pos2-pos3-L2() < h()*vel3+(vel3^2-vel2last^2)/(2*B())->[acc3:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                        assignb('R=="[acc3:=-B();](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                        QE,
+                                      "[acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())":
+                                        composeb('R=="[acc3:=-E();{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                        assignb('R=="[acc3:=-E();][{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=acc3-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())");
+                                        ODE('R=="[{pos0'=vel0,vel0'=a0,pos1'=vel1,vel1'=acc1-g()*sin(alpha(pos1)),pos2'=vel2,vel2'=acc2-g()*sin(alpha(pos2)),pos3'=vel3,vel3'=-E()-g()*sin(alpha(pos3)),t1'=1,t2'=1,t3'=1,t0'=1&vel0>=0&vel1>=0&vel2>=0&vel3>=0&pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0()}](pos3<=pos2-L2()&pos2<=pos1-L1()&pos1<=pos0-L0())")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)
+End.
+
+End.
